@@ -1,4 +1,4 @@
-# Memory in Rig
+# Memory
 
 ## What is Memory?
 
@@ -74,7 +74,19 @@ Add methods for basic message management:
 
 ```rust
 impl ConversationMemory {
-    pub fn add_message(&mut self, message: Message) {
+    pub fn add_user_message(&mut self, input: &str) {
+        let message = Message::User {
+            content: OneOrMany::one(UserContent::text(input))
+        };
+        
+        self.messages.push(message);
+    }
+    
+    pub fn add_assistant_message(&mut self, input: &str) {
+        let message = Message::Assistant {
+            content: OneOrMany::one(AssistantContent::text(input))
+        };
+        
         self.messages.push(message);
     }
 
@@ -87,8 +99,9 @@ impl ConversationMemory {
     }
 }
 ```
+Although being able to clear and fetch/add messages is quite useful, will also need a way to compact the messages by generating a summary. 
 
-Now implement the compaction logic. When the conversation grows too large, we'll ask an LLM to summarize it:
+Typically there are a number of ways this can be done, but for the sake of simplicity we will hold a variable that has a number of maximum messages. If the message length passes the threshold, we clear the message list and ask the LLM to generate a summary.
 
 ```rust
 use rig::completion::CompletionModel;
@@ -153,23 +166,23 @@ Alternatively, you can add the summary as a user message at the start of the con
 
 ```rust
 impl ConversationMemory {
-    pub fn get_messages_with_summary(&self) -> Vec<Message> {
+    pub fn get_message_summary(&self) -> Vec<Message> {
         let mut messages = Vec::new();
 
         if let Some(summary) = &self.summary {
-            messages.push(Message {
-                role: "user".to_string(),
-                content: format!("Context from previous conversation:\n{}", summary),
-            });
-        }
-
-        messages.extend_from_slice(&self.messages);
+            messages.push(
+                Message::User {
+                    content: OneOrMany::one(
+                        UserContent::text(format!("Context from previous conversation:\n{}", summary).as_ref())))
+                }
+            )};
+            
         messages
     }
 }
 ```
 
-Here's how you'd use this in practice:
+In practice, this is how you'd use it:
 
 ```rust
 let mut memory = ConversationMemory::new(10);
@@ -186,6 +199,8 @@ if memory.get_messages().len() > memory.max_messages {
 // Build your next request with the summary included
 let messages = memory.get_messages_with_summary();
 ```
+
+Although you can see here that the compaction is manual, there's a lot of ways you can build around it: you can check to see if the window needs compacting after every message, you could compact it based on token limit (although this would need a tokenizer to count tokens).
 
 ## Strategies for Long-Term Memory
 
@@ -290,6 +305,14 @@ let context = format!(
     relevant_facts.join("\n")
 );
 ```
+
+### Caching
+
+Generally speaking, effective memory systems don't just have a single data source that it pulls from. The most production-capable systems often have multiple tiers of memory storage to accommodate for different needs. Typically, one of these should allow for fast fetching of the most commonly fetched items - using a caching layer. Whether it's in memory, through Redis or Memcache (or perhaps another service dedicating to  caching), caching is highly versatile and agentic memory is no exception.
+
+How to create caches and use them is already a very well-trodden topic, and as such a full implementation will not be provided here. However, there are some highly useful crates you can use to help create your own memory cache:
+- [lru](https://github.com/jeromefroe/lru-rs) - an implementation of a Least Recently Used cache
+- [slotmap](https://crates.io/crates/slotmap) - A data structure with low overhead for storing, inserting and deleting items
 
 ## Combining Memory Strategies
 

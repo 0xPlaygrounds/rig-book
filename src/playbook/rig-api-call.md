@@ -1,5 +1,5 @@
-# Making API calls with Rig
-Let's get started by writing your first API call.
+# Calling Model Providers with Rig
+Let's get started by writing your first API call to a model provider. While Rig does have support for local models (through ollama, LM Studio through OpenAI Chat Completions, as well as other local providers), the majority of practical applications are through third party providers. 
 
 To get started, create a new project:
 
@@ -69,7 +69,9 @@ while let Some(item) = stream.next().await {
 ```
 
 ## Calling completion models directly
-Calling completion models is also quite easy. To do so, you'll need to import the `CompletionsClient` trait (from the `client` module) and use the method.
+Calling completion models is also relatively simple.
+
+To do so, you'll need to import the `CompletionsClient` trait (from the `client` module) and use the method.
 
 ```rust
 /// the completion model trait is provided through the CompletionsClient trait!

@@ -1,5 +1,28 @@
 # Retrieval-Augmented Generation (RAG)
 
+## What is RAG?
+Retrieval Augmented Generation (or RAG), broadly speaking, is a technique that describes using document retrieval to augment a prompt.
+
+This essentially means that instead of a prompt where you have plain use text:
+
+```
+Prompt: 
+What is Einstein famous for?
+```
+
+You can now inject context into your prompts:
+
+```
+Prompt: 
+What is Einstein famous for?
+
+Context:
+<insert some RAG context here>
+```
+
+The goal is that the model will then generate more accurate answers because it has the context to help support writing a fact-based answer.
+
+## RAG with Rig
 Rig provides built-in support for RAG through two ways:
 - the `VectorStoreIndex` trait for fetching documents
 - the `InsertDocuments` trait for inserting documents
