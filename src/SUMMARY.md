@@ -15,4 +15,3 @@
 - [Dynamic model creation](./playbook/dynamic-model-creation.md)
 - [Multi-agent systems](./playbook/multi-agent-systems.md)
 - [Observability](./playbook/observability.md)
-- [Production patterns](./playbook/production-patterns.md)
