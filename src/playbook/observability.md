@@ -5,9 +5,6 @@ Effective observability is crucial for understanding and debugging LLM applicati
 ## Observability in LLM-assisted systems
 Observability in AI/LLM-assisted systems is a huge component in being able to ensure that a non-deterministic system can still be considered relatively reliable by making sure that metrics like model drift (and accuracy!), guardrail effectiveness and token usage can be easily tracked as well as error rates. Even moreso than traditional systems, it's important for LLM-assisted systems to be instrumented and observable specifically because of the non-deterministic component.
 
-## What does observability mean in Rig?
-Generally speaking, observability is the ability to observe a system.
-
 ## Overview
 
 Rig's observability approach is relatively minimal and unopinionated. Internally we use the `tracing` crate to emit logs and spans, which you can use however you want and can use any kind of tracing subscriber (via `tracing-subscriber`) or log facade (like `env-logger`), etc, to emit them.
