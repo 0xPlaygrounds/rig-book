@@ -1,9 +1,3 @@
-TODO:
-- [Memory](./playbook/memory.md)
-- [Dynamic model creation](./playbook/dynamic-model-creation.md)
-- [Observability](./playbook/observability.md)
-- [Production patterns](./playbook/production-patterns.md)
-
 FIRST DRAFT DONE:
 - [Introduction](./intro/index.md)
   - [What are AI agents, and why Rust?](./intro/what-are-ai-agents-rust.md)
@@ -15,3 +9,6 @@ FIRST DRAFT DONE:
 - [RAG](./playbook/rag.md)
 - [Multi-agent systems](./playbook/multi-agent-systems.md)
 - [Model routing](./playbook/model-routing.md)
+- [Memory](./playbook/memory.md)
+- [Dynamic model creation](./playbook/dynamic-model-creation.md)
+- [Observability](./playbook/observability.md)

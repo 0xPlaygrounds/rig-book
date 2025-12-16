@@ -81,7 +81,7 @@ Add these to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rig-core = "0.1.0"
+rig-core = "0.26.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-opentelemetry = "0.30"
@@ -102,32 +102,32 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Configure OTLP exporter to send to your collector
-    let otlp_exporter = opentelemetry_otlp::new_exporter()
-        .tonic()
-        .with_endpoint("http://localhost:4317"); // Your OTEL collector endpoint
+    let exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_http()
+        .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
+        .build()?;
+    // Create a new OpenTelemetry trace pipeline that prints to stdout
+    let provider = SdkTracerProvider::builder()
+        .with_batch_exporter(exporter)
+        .with_resource(Resource::builder().with_service_name("rig-service").build())
+        .build();
+    let tracer = provider.tracer("example");
 
-    // Create tracer provider
-    let tracer_provider = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(otlp_exporter)
-        .with_trace_config(
-            sdktrace::config().with_resource(Resource::new(vec![
-                opentelemetry::KeyValue::new("service.name", "my-rig-app"),
-            ]))
-        )
-        .install_batch(runtime::Tokio)?;
+    // Create a tracing layer with the configured tracer
+    let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+    let filter_layer = tracing_subscriber::filter::EnvFilter::builder()
+        .with_default_directive(Level::INFO.into())
+        .from_env_lossy();
 
-    // Get tracer
-    let tracer = tracer_provider.tracer("my-rig-app");
+    // add a `fmt` layer that prettifies the logs/spans that get outputted to `stdout`
+    let fmt_layer = tracing_subscriber::fmt::layer().pretty();
 
-    // Set up tracing subscriber with OTEL layer
+    // Use the tracing subscriber `Registry`, or any other subscriber
+    // that impls `LookupSpan`
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,rig_core=trace".into())
-        )
-        .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(filter_layer)
+        .with(fmt_layer)
+        .with(otel_layer)
         .init();
 
     // Your Rig application code here

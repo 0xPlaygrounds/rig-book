@@ -1,19 +1,63 @@
 # Multi-agent systems
-This section will focus primarily on multi-agent systems (ie, using more than one entity that can call an LLM at any given point), both generally and with Rig.
 
 ## The case for multi-agent systems
-Typically, you may be using one agent to carry out LLM-assisted operations across one or more parts of your workflow. If this agent is then extended to encompass more parts of your workflow, it may need to deal with being able to use a large amount of tools and working autonomously.
+As your LLM workflows grow more sophisticated, you'll eventually hit a wall with single-agent architectures. An agent that starts by handling customer support tickets might gradually take on order processing, then inventory checks, then fraud detection. Before long, you're dealing with an agent that has access to 30+ tools, a bloated system prompt trying to juggle multiple responsibilities, and increasingly unreliable outputs.
 
-This is generally considered inefficient for a few reasons:
-- Adding too many tools to a given agent can bloat the context window
-- Trying to give an agent too many responsibilities can confuse it and cause it to output incorrect answers
+Like when you hire a new employee and give them too many responsibilities, this can confuse an agent and cause the output quality to degrade - sometimes significantly. This can be a major failure mode in production: often, you may be making use of lots of different tools from MCP servers as well as internal tools, plus RAG context and memories - all of which can bloat your context window. This can cause your agent to do things such as attempt to call tools incorrectly or hallucinate.
 
-Generally, current best practices indicate that the best use of agents is often as tightly constrained specialists rather than single "do-everything" agents. This has lead to the rise of systems that use multiple agents that talk to each other - hence, multi-agent systems.
+The solution to this is to create multiple agents that specialise in one subject each, then either use a "manager" agent that manages their execution or have them co-ordinate between each other. A customer support agent might know how to talk to customers but needs help from a fraud detection agent. A research co-ordinator might delegate specific enquiries to domain experts.
 
-Below we will go into some patterns that you can use for architecting multi-agent systems.
+## Do I need multi-agent systems?
+If your workflow operates in one domain with a focused set of tools (under 10-15), better prompting and context engineering will almost always beat the complexity of needing to manage multiple agents.
+
+Try these first:
+- Structured outputs for reducing ambiguity
+- Better retrieval (improved chunking, more relevant/complete datasets)
+- Tighter constraints, clearer role definitions
+
+The following requirements benefit the most from multi-agent systems:
+- Agents that need 20+ tools and start calling wrong/irrelevant tools
+- Tasks that require cross-domain co-ordination (eg, documentation writing + product building)
+- Context window exhaustion - you've optimised retrieval but still can't fit in all the necessary context
+- Clear role delegation boundaries
+
+Without clear boundaries/requirements however, it's better to use one agent with improved context engineering. If you can't clearly articulate why you need a multi-agent system, it is often better to keep it simple.
+
+If you need to measure the metrics for your system to help improve it, you may want to look at [the observability section of this playbook.](./observability.html)
 
 ##  Manager-worker pattern
-Rig supports manager-worker patterns for multi-agent systems out of the box by allowing agents to be added to other agents as tools, making it easy to form a manager-worker architecture pattern. We can easily illustrate this with writing two agents called Alice and Bob. Alice is a manager at FooBar Inc., a fictitious company made up for the purposes of this example. Bob is employed by Alice to do some work. We can see how this hierarchy is pretty simple:
+Rig supports manager-worker patterns for multi-agent systems out of the box by allowing agents to be added to other agents as tools, making it easy to form a manager-worker architecture pattern. Below is a diagram that illustrates this concept:
+
+```mermaid
+graph TD
+    A[User Request] --> B[Manager Agent]
+    
+    B --> C{Task Planning}
+    C --> D[Decompose into Subtasks]
+    
+    D --> E[Worker 1<br/>Subtask A]
+    D --> F[Worker 2<br/>Subtask B]
+    D --> G[Worker 3<br/>Subtask C]
+    
+    E --> H[Result A]
+    F --> I[Result B]
+    G --> J[Result C]
+    
+    H --> K[Manager Agent<br/>Result Aggregation]
+    I --> K
+    J --> K
+    
+    K --> L[Synthesize & Validate]
+    L --> M[Final Response]
+    
+    style B fill:#ff9999,color:#000
+    style E fill:#99ccff,color:#000
+    style F fill:#99ccff,color:#000
+    style G fill:#99ccff,color:#000
+    style K fill:#ff9999,color:#000
+```
+
+In Rig, we can easily illustrate this with writing two agents called Alice and Bob. Alice is a manager at FooBar Inc., a fictitious company made up for the purposes of this example. Bob is employed by Alice to do some work. We can see how this hierarchy is pretty simple:
 
 ```rust
 let bob = openai_client.agent("gpt-5")
@@ -33,11 +77,9 @@ let res = alice.prompt("Ask Bob to write an email for you and let me know what h
 
 println!("{res:?}");
 ```
-Under the hood, what should happen is that OpenAI will initially return a tool call to prompt Bob (with a prompt provided by OpenAI). Rig executes this by prompting Bob with the given prompt. Bob will then return a response back to Alice, then Alice will return the response back to us using the information provided by Bob.
+Under the hood, OpenAI will initially return a tool call to prompt Bob (with a prompt provided by the LLM). Rig executes this by prompting Bob with the given prompt. Bob will then return a response back to Alice, then Alice will return the response back to us using the information provided by Bob.
 
-If you do it this way, make sure you give your agents a name and description as both of these are used in the tool implementation.
-
-Note that in this architecture pattern, agents are executed sequentially.
+If you do it this way, make sure you give your agents a name and description as both of these are used in the tool implementation. This can be done by using `AgentBuilder::name()` and `AgentBuilder::description()` respectively in the agent builder.
 
 ## Distributed agent architecture (swarm behaviour)
 Although swarm-style agent architecture is not supported out of the box with Rig, we can easily re-create it by using the actor pattern.
@@ -251,6 +293,8 @@ o       match task {
 }
 ```
 
+Below is a code snippet to showcase this:
+
 ```rust
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -303,8 +347,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Taking this to production
-If you are interested in taking this to production, you may want to look into `ractor` which is an actor framework written entirely in Rust, with cluster support, and is being used actively at companies like Kraken (the crypto exchange) and Whatsapp.
-
-## Are multi-agent systems always better?
-Of course not! They can be better for dealing with some complex workflows, but ultimately you should aim for your systems to be as simple, observable and ultimately maintainable as possible. While multi-agent systems
+If you are interested in taking AI agent swarms to production using actor patterns, you may want to look into `ractor`. Ractor is currently the most popular Rust actor framework, is being used actively at companies like Kraken (the crypto exchange) and Whatsapp and additionally has cluster support.

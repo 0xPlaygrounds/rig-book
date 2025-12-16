@@ -1,16 +1,27 @@
-# Model Routing with Rig
+# Model Routing
 
-Model routing in Rig allows you to dynamically select different agents based on the incoming request using semantic, Axum-style routing patterns. This enables you to build sophisticated systems where requests are intelligently routed to specialized agents.
+Model routing allows you to dynamically select different agents based on the incoming request. This enables you to build sophisticated systems where requests are intelligently routed to specialized agents. For example, if you run a sales team you might have a domain expert agent, an agent to assist with sales engineering and an agent to help you check in on your team's performance and where they may need unblocking - all under one chat interface. By using model routing, we can effectively model a system that accurately categorises which agent the query should go to.
 
-## Use cases
+## Use cases for model routing
 Model routing is a simple concept that simultaneously solves a lot of issues in AI systems by using it as the following:
 - A guardrail layer (to make sure the model only responds to certain topics)
 - Route to other models depending on topic, creating a multi-layered system
 - You can also use it to route to a less or more expensive model (eg if you need a fallback model)
 
-In terms of execution, there are really mostly two types of router concepts that are then expanded on. You can use a basic LLM decision layer that non-deterministically does the routing for you with no real setup, or you can alternatively use something else like semantic routing with embeddings which is much more effective but also requires more setup. We'll be going over both types of model routing.
+In terms of execution, there are two basic types of routers that are then expanded on. You can use a basic LLM decision layer that non-deterministically does the routing for you with no initial infrastructure setup required, or you can alternatively use something else like semantic routing with embeddings which is much more effective but also requires more setup.
 
 ## Simple LLM routing
+Below is a diagram which depicts the data flow for an LLM-based router:
+```mermaid
+flowchart TD
+    User[User] -->|Query| Decision[LLM Decision Layer]
+    Decision -->|Category A| AgentA[Agent A]
+    Decision -->|Category B| AgentB[Agent B]
+    AgentB --> Response
+    AgentA --> Response
+```
+
+LLM-based routers are quite easy to set up and can be used to validate an MVP very easily, but often come with drawbacks that would not be present in a semantic router.
 
 First, let's set up a barebones routing system that basically asks the LLM to return a single word based on what we ask it. This code snippet will do the following:
 - Initialise two different agents representing possible "routes" on an LLM router
@@ -37,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build();
 
     let router = openai_client
-        .agent("gpt-5-mini") /// we can afford to use a less expensive model here as the computation required is significantly less
+        .agent("gpt-5-mini") // we can afford to use a less expensive model here as the computation required is significantly less
         .preamble("Please return a word from the allowed options list,
             depending on which word the user's question is more closely related to. Skip all prose.
             

@@ -14,6 +14,42 @@ Memory becomes critical in several scenarios:
 - **Task-oriented dialogues** where the AI needs to track goals and progress
 - **Long-running sessions** where conversations span multiple topics
 
+The following diagram can be used to describe an agentic loop that uses memory. It attempts to retrieve relevant memories (with retrieval/filtering often in the same step), assembles context for our agent based on the memories and then finally once the full request is assembled the agent will then send the prompt to the LLM. Once a response has been retrieved, it might then check if memories need updating (and update accordingly).
+```mermaid
+graph TD
+    A[User Input] --> B[Agent Processing]
+    B --> C{Memory Operations}
+    
+    C --> D[Short-term Memory]
+    C --> E[Long-term Memory]
+    C --> F[Episodic Memory]
+    
+    D --> G[Current Context<br/>Active conversation]
+    E --> H[Semantic Knowledge<br/>Facts & concepts]
+    F --> I[Past Interactions<br/>Event sequences]
+    
+    G --> J[Memory Retrieval]
+    H --> J
+    I --> J
+    
+    J --> K[Relevance Filtering]
+    K --> L[Context Assembly]
+    
+    L --> M[Response Generation]
+    M --> N[Action/Output]
+    
+    N --> O[Memory Update]
+    O --> D
+    O --> E
+    O --> F
+    
+    style D fill:#e1f5ff,color:#000
+    style E fill:#fff4e1,color:#000
+    style F fill:#f0e1ff,color:#000
+    style J fill:#e1ffe1,color:#000
+    style M fill:#ffe1e1,color:#000
+```
+
 ## Basic Memory Management in Rig
 
 In Rig, conversation history is currently decoupled from the library - which is to say that you need to implement it yourself. The simplest form of memory management is storing a conversation history as a `Vec<T>`. Each exchange between the user and the assistant is stored as a `Message` object:

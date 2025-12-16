@@ -2,3 +2,10 @@
 title = "The Rig Book"
 authors = ["Joshua Mo"]
 language = "en"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.html]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+additional-css = ["style.css"]

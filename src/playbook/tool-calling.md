@@ -1,7 +1,19 @@
-# Tool calling in Rig
+# Tool calling
+
+## What is tool calling?
+Tool calling (also called "function calling") essentially involves the LLM sending a prompt response containing a content part called a "tool call", using a tool that you have defined as part of your request. Your agent then executes the tool, typically represented as a function, then sends the tool result back to the LLM. The LLM will then use the tool result to generate a response that uses the tool result.
+
+Tools are core to the agentic loop and what differentiates agents from "just an LLM call". By using tool calls, you can turn an LLM into a fully-fledged system that can autonomously execute tasks.
+
+## Do I need tools?
+If your LLM application needs to interact with your infrastructure (for example, your Postgres database) or make calculations independently of the other application logic, then you absolutely need tools!
+
+If you're building a simple chat application or using an LLM for data classification tasks though, probably not. These kinds of tasks rely typically more on the raw conversational ability of an LLM, rather than interacting with an agent's external environment.
+
+## Tool calling in Rig
 Functionally, tools in Rig can be defined as types that implement the `rig::tool::Tool` trait.
 
-A simple example of this might be a tool that adds two numbers together:
+A simple example would be be a tool that adds two numbers together:
 ```rust
 use serde::{Deserialize, Serialize};
 #[derive(Deserialize)]
@@ -63,21 +75,11 @@ async fn add(x: i32, y: i32) -> i32 {
 }
 ```
 
-
-## Built-in Tools
-By default, you can call Agents and vector stores as tools. This makes it much easier to write multi-agent systems!
-
-If you are trying to use an agent as a tool, don't forget to add a name and description by using their respective functions.
-
-## Practical usage and applications
-Without tools, LLMs are pretty much just theoretical word guessers.
-
-### Agents
-Agents can automatically execute tools that give it on your behalf. You can do so by simply adding the tool to your Agent:
+## Practical usage
+Agents in Rig allow you to simply add tools in the builder type:
 
 ```rust
 let agent = openai_client.agent("gpt-5")
-    .preamble("You are a helpful assistant.")
-    .tool(Adder)
-    .build();
+  .tool(Adder)
+  .build();
 ```
