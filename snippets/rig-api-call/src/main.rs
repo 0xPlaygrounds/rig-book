@@ -4,6 +4,11 @@ use rig::providers::openai::Client;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    call_agent().await?;
+    Ok(())
+}
+
+async fn call_agent() -> Result<(), Box<dyn std::error::Error>> {
     let openai_client = Client::from_env();
 
     let agent = openai_client

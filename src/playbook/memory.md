@@ -141,9 +141,10 @@ Typically there are a number of ways this can be done, but for the sake of simpl
 
 ```rust
 use rig::completion::CompletionModel;
+use rig::completion::Prompt;
 
 impl ConversationMemory {
-    pub async fn compact(&mut self, client: &T) -> Result<(), Box<dyn std::error::Error>> 
+    pub async fn compact<T>(&mut self, client: &T) -> Result<(), Box<dyn std::error::Error>> 
         where
         T: CompletionModel
     {

@@ -636,6 +636,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
+name = "memory"
+version = "0.1.0"
+dependencies = [
+ "rig-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -839,6 +850,14 @@ name = "r-efi"
 version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
+
+[[package]]
+name = "rag"
+version = "0.1.0"
+dependencies = [
+ "rig-core",
+ "tokio",
+]
 
 [[package]]
 name = "ref-cast"
@@ -1329,6 +1348,17 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
+name = "tool-calling"
+version = "0.1.0"
+dependencies = [
+ "rig-core",
+ "serde",
+ "serde_json",
+ "thiserror",
  "tokio",
 ]
 
