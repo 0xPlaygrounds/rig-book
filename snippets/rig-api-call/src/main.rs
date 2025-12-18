@@ -1,3 +1,4 @@
+//! This example showcases using a simple agent with a given name to send a request to an LLM.
 use rig::client::{CompletionClient, ProviderClient};
 use rig::completion::Prompt;
 use rig::providers::openai::Client;

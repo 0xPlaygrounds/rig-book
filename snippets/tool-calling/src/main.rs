@@ -1,3 +1,4 @@
+//! This example showcases using a simple addition tool with an agent in Rig.
 use rig::prelude::*;
 use rig::{
     completion::{Prompt, ToolDefinition},

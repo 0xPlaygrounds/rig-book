@@ -1,3 +1,9 @@
+//! This example showcases using a container type to hold a message history.
+//! The LLM will be prompted for 2 turns (so 4 messages are generated in total).
+//! Once done, the message history will be compacted, then the summary will be included
+//! with the final LLM prompt.
+//!
+//! The relevant information is printed at each stage to show what is happening.
 use rig::agent::Text;
 use rig::client::{CompletionClient, ProviderClient};
 use rig::completion::Prompt;
