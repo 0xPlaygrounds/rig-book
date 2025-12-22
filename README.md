@@ -8,7 +8,7 @@ Below is some guidance on how to get started with running the various parts of t
 If you are interested in contributing to or running any of the examples, you will need the following installed:
 - [the Rust programming language](https://rust-lang.org/tools/install/)
 
-You will also need an OpenAI API key.
+You will also need an OpenAI API key (set as `OPENAI_API_KEY` env variable).
 
 ### The book
 If you are interested in contributing to the book itself, you will need the following installed:

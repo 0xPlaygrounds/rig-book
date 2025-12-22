@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["dynamic-model-creation","memory", "model-routing", "multi-agent-systems","rag","rig-api-call", "tool-calling"]
+members = ["dynamic-model-creation","memory", "model-routing", "multi-agent-systems", "observability","rag","rig-api-call", "tool-calling"]
 
 [workspace.dependencies]
 rig-core = "0.27.0"

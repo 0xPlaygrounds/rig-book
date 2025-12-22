@@ -6,7 +6,6 @@ Effective observability is crucial for understanding and debugging LLM applicati
 Observability in AI/LLM-assisted systems is a huge component in being able to ensure that a non-deterministic system can still be considered relatively reliable by making sure that metrics like model drift (and accuracy!), guardrail effectiveness and token usage can be easily tracked as well as error rates. Even moreso than traditional systems, it's important for LLM-assisted systems to be instrumented and observable specifically because of the non-deterministic component.
 
 ## Overview
-
 Rig's observability approach is relatively minimal and unopinionated. Internally we use the `tracing` crate to emit logs and spans, which you can use however you want and can use any kind of tracing subscriber (via `tracing-subscriber`) or log facade (like `env-logger`), etc, to emit them.
 
 ### Instrumentation Levels
@@ -25,9 +24,16 @@ tracing_subscriber::fmt().init();
 ```
 
 ```rust
+use rig::{
+    client::{CompletionClient, ProviderClient},
+    completion::Prompt,
+    providers::openai,
+};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing::{info, instrument};
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -35,15 +41,38 @@ fn main() {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+    
+    let response = process_query("Hello world!").await.unwrap();
 
-    // Your Rig application code here
+    println!("Response: {response}");
+
+    Ok(())
+}
+
+#[instrument(name = "process_user_query")]
+async fn process_query(user_input: &str) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Processing user query");
+    
+    let openai_client = openai::Client::from_env();
+    
+    let agent = openai_client
+        .agent("gpt-4")
+        .preamble("You are a helpful assistant.")
+        .build();
+
+    // This completion call will emit spans automatically
+    let response = agent.prompt(user_input).await?;
+    
+    info!("Query processed successfully");
+    Ok(response)
 }
 ```
 
-This configuration:
-- Sets the default log level to `info`
-- Enables `trace` level logging for `rig` to see detailed request/response data
-- Uses environment variables (e.g., `RUST_LOG=trace`) to override filter settings
+When running this example, you'll see:
+
+- `INFO` spans for the completion operation lifecycle
+- `TRACE` logs showing the actual request/response payloads
+- Custom spans from your application code (like `process_user_query`)
 
 ### Customizing Output Format
 
@@ -65,7 +94,7 @@ fn main() {
 }
 ```
 
-This is primarily useful when you have a log drain or place where logs (or traces!) are stored, as it allows you to then query the logs easily using `jq`:
+This is primarily useful when you have a local log drain or place where logs (or traces!) are stored for debugging, as it allows you to then query the logs easily using `jq`:
 
 ```bash
 tail -f <logfile> | jq .
@@ -73,15 +102,17 @@ tail -f <logfile> | jq .
 
 ## OpenTelemetry Integration
 
-For production deployments, you'll typically want to export traces to an external observability platform. Rig integrates seamlessly with OpenTelemetry, allowing you to use your own OTEL collector and route traces to any compatible backend.
+For production deployments, you'll typically want to export traces to an external observability platform. Rig integrates seamlessly with OpenTelemetry, allowing you to use your own [Otel collector](https://opentelemetry.io/docs/collector/) and route traces to any compatible backend.
+
+This example will utilise the OTel collector as it can easily be used to send your traces/spans and logs anywhere you'd like.
 
 ### Dependencies
 
-Add these to your `Cargo.toml`:
+Add the following dependencies to your `Cargo.toml` - the listed dependencies below (besides `rig-core`) are all required to make this work:
 
 ```toml
 [dependencies]
-rig-core = "0.26.0"
+rig-core = "0.27.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-opentelemetry = "0.30"
@@ -122,16 +153,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // add a `fmt` layer that prettifies the logs/spans that get outputted to `stdout`
     let fmt_layer = tracing_subscriber::fmt::layer().pretty();
 
-    // Use the tracing subscriber `Registry`, or any other subscriber
-    // that impls `LookupSpan`
+    // Create a multi-layer subscriber that filters for given traces,
+    // prettifies the logs/spans and then sends them to the OTel collector.
     tracing_subscriber::registry()
         .with(filter_layer)
         .with(fmt_layer)
         .with(otel_layer)
         .init();
 
-    // Your Rig application code here
-    // ...
+    let response = process_query("Hello world!").await.unwrap();
+
+    println!("Response: {response}");
 
     // Shutdown tracer provider on exit
     opentelemetry::global::shutdown_tracer_provider();
@@ -140,232 +172,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+This should output all traces to your program's stdout, *as well as* sending it to your OTel collector which will then transform the spans as required and send them along to Langfuse.
+
 ### OTEL Collector Configuration
 
-Your OTEL collector can then route traces to various backends. Example `otel-collector-config.yaml`:
+Your OTEL collector can then route traces to various backends. Below is an example YAML file which you might use - for the purposes of this example we'll be using [Langfuse](https://langfuse.com/) as they are a relatively well known service provider for LLM-related observability that can additionally be self-hosted:
 
 ```yaml
 receivers:
   otlp:
     protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
 
 processors:
-  batch:
+  transform:
+    trace_statements:
+      - context: span
+        statements:
+          # Rename span if it's "invoke_agent" and has an agent attribute
+          # Theoretically this can be left out, 
+          - set(name, attributes["gen_ai.agent.name"]) where name == "invoke_agent" and attributes["gen_ai.agent.name"] != nil
 
 exporters:
-  # Export to Jaeger
-  otlp/jaeger:
-    endpoint: jaeger:4317
-    tls:
-      insecure: true
-  
-  # Export to Grafana Tempo
-  otlp/tempo:
-    endpoint: tempo:4317
-    tls:
-      insecure: true
-  
-  # Export to Honeycomb, Datadog, etc.
-  otlp/vendor:
-    endpoint: api.vendor.io:443
+  debug:
+    verbosity: detailed
+  otlphttp/langfuse:
+    endpoint: "https://cloud.langfuse.com/api/public/otel"
     headers:
-      x-api-key: ${VENDOR_API_KEY}
+      # Langfuse uses basic auth, in the form of username:password.
+      # In this case your username is your Langfuse public key and the password is your Langfuse secret key.
+      Authorization: "Basic ${AUTH_STRING}"
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [otlp/jaeger, otlp/tempo]
+      processors: [transform]
+      exporters: [otlphttp/langfuse, debug]
 ```
 
-## Example: Observing a Rig Agent
+To actually use this file, you would want to write your own Dockerfile that pulls the OTel collector image:
 
-Here's a complete example showing how instrumentation appears in a Rig application:
+```bash
+# Start from the official OpenTelemetry Collector Contrib image
+FROM otel/opentelemetry-collector-contrib:0.135.0
 
-```rust
-use rig::{completion::Prompt, providers::openai};
-use tracing::{info, instrument};
-
-#[instrument(name = "process_user_query")]
-async fn process_query(user_input: &str) -> Result<String, Box<dyn std::error::Error>> {
-    info!("Processing user query");
-    
-    let openai_client = openai::Client::from_env();
-    
-    let agent = openai_client
-        .agent("gpt-4")
-        .preamble("You are a helpful assistant.")
-        .build();
-
-    // This completion call will emit spans automatically
-    let response = agent.prompt(user_input).await?;
-    
-    info!("Query processed successfully");
-    Ok(response)
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing (see setup examples above)
-    tracing_subscriber::fmt::init();
-    
-    let result = process_query("What is Rust?").await?;
-    println!("Response: {}", result);
-    
-    Ok(())
-}
+# Copy your local config into the container
+# Replace `config.yaml` with your actual filename if different
+COPY ./config.yaml /etc/otelcol-contrib/config.yaml
 ```
 
-When running with `RUST_LOG=trace`, you'll see:
-
-- `INFO` spans for the completion operation lifecycle
-- `TRACE` logs showing the actual request/response payloads
-- Custom spans from your application code (like `process_user_query`)
+You can then build this image with `docker build -t <some-tag-name> -f <dockerfile-filename> .` where `<some-tag-name>` is whatever name you want to give to the image.
 
 ## Integration with Specific Providers
 
-While Rig doesn't include pre-built subscriber layers for specific vendors, the otel collector approach allows you to send traces to any observability platform:
+While Rig doesn't include pre-built subscriber layers for specific vendors, the otel collector approach allows you to send traces to any observability platform. This is arguably a much more flexible way to set up telemetry, although it does have some set-up required.
 
-### Grafana Cloud / Tempo
+If you're interested in tracing subscriber layer integrations for specific integrations, please open a feature request issue on our [GitHub repo!](https://github.com/0xPlaygrounds/rig/issues)
 
-```yaml
-# In your OTEL collector config
-exporters:
-  otlp/grafana:
-    endpoint: tempo-prod-04-prod-us-east-0.grafana.net:443
-    headers:
-      authorization: Basic ${GRAFANA_CLOUD_TOKEN}
-```
-
-### Honeycomb
-
-```yaml
-exporters:
-  otlp/honeycomb:
-    endpoint: api.honeycomb.io:443
-    headers:
-      x-honeycomb-team: ${HONEYCOMB_API_KEY}
-      x-honeycomb-dataset: my-rig-app
-```
-
-### Datadog
-
-```yaml
-exporters:
-  datadog:
-    api:
-      key: ${DD_API_KEY}
-      site: datadoghq.com
-```
-
-### Jaeger (Self-Hosted)
-
-```yaml
-exporters:
-  otlp/jaeger:
-    endpoint: localhost:4317
-    tls:
-      insecure: true
-```
-
-## Best Practices
-
-### 1. Use Appropriate Log Levels in Production
-
-Avoid running `trace` level logging in production as it logs full request/response bodies:
-
-```rust
-tracing_subscriber::EnvFilter::try_from_default_env()
-    .unwrap_or_else(|_| "info".into()) // Only trace for rig_core when needed
-```
-
-### 2. Add Custom Spans for Business Logic
-
-Wrap your domain-specific operations in spans for better observability:
-
-```rust
-use tracing::instrument;
-
-#[instrument(skip(agent))]
-async fn analyze_sentiment(agent: &Agent, text: &str) -> Result<String, Error> {
-    agent.prompt(&format!("Analyze sentiment: {}", text)).await
-}
-```
-
-### 3. Include Contextual Attributes
-
-Add relevant metadata to your spans:
-
-```rust
-use tracing::info_span;
-
-let span = info_span!(
-    "user_request",
-    user_id = %user_id,
-    request_type = "completion"
-);
-
-let _enter = span.enter();
-// Your code here
-```
-
-### 4. Handle Errors with Context
-
-Log errors with appropriate context:
-
-```rust
-use tracing::error;
-
-match agent.prompt(input).await {
-    Ok(response) => Ok(response),
-    Err(e) => {
-        error!(error = %e, "Failed to get completion");
-        Err(e)
-    }
-}
-```
-
-### 5. Sampling in High-Volume Scenarios
-
-For high-throughput applications, configure sampling in your tracer:
-
-```rust
-use opentelemetry_sdk::trace::Sampler;
-
-let tracer_provider = opentelemetry_otlp::new_pipeline()
-    .tracing()
-    .with_exporter(otlp_exporter)
-    .with_trace_config(
-        sdktrace::config()
-            .with_sampler(Sampler::TraceIdRatioBased(0.1)) // Sample 10% of traces
-            .with_resource(resource)
-    )
-    .install_batch(runtime::Tokio)?;
-```
-
-## Troubleshooting
-
-### Not Seeing Traces
-
-1. Verify your filter configuration includes Rig: `RUST_LOG=info,rig_core=trace`
-2. Check that your OTEL collector is reachable
-3. Ensure `tracing_subscriber::init()` is called before any Rig operations
-
-### Too Verbose Output
-
-1. Set `rig_core` to `info` instead of `trace` to hide request/response bodies
-2. Adjust your environment filter: `RUST_LOG=warn,rig_core=info`
-
-### Missing Spans in External Tools
-
-1. Verify your OTEL collector is correctly configured and running
-2. Check collector logs for export errors
-3. Ensure your tracer provider is properly shut down on application exit
 
 ## Additional Resources
 
