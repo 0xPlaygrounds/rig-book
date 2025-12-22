@@ -81,27 +81,34 @@ While this does work, in a production use case you may want to make the implemen
 - Using the Rust type system to properly type our agents, as well as covering dynamic dispatch for agent routing
 
 ## Router Type-safety
-Okay, so instead of just having all our agents in one function let's imagine instead that we have a router that can take any kind of agent.
+Instead of just having all our agents in one function let's imagine instead that we have a router that can take any kind of agent (from a given provider).
 
 ```rust
-use rig::completion::CompletionModel;
+type OpenAIAgent = Agent<rig::providers::openai::ResponsesCompletionModel>;
 
-struct TypedRouter<R> 
-    where
-    R: CompletionModel
-{
-    route: HashMap<String, R>
+struct TypedRouter {
+    routes: HashMap<String, OpenAIAgent>,
 }
 
-impl<R1> TypedRouter<(R1,)>
-where R1: CompletionModel
-{
-    pub fn add_route<R2>(mut self, route: R2) -> TypedRouter<(R1, R2)>
-        where R2: CompletionModel {
-            self.completion
+impl TypedRouter {
+    pub fn new() -> Self {
+        Self {
+            routes: HashMap::new(),
         }
+    }
+
+    pub fn add_route(mut self, route_loc: &str, agent: OpenAIAgent) -> Self {
+        self.routes.insert(route_loc.to_string(), agent);
+        self
+    }
+
+    pub fn fetch_agent(&self, route: &str) -> Option<&OpenAIAgent> {
+        self.routes.get(route)
+    }
 }
 ```
+
+At the cost of only being able to use agents from a single provider, this makes it quite easy to create simple routers for non-complex use cases. For example: tasks that require simple data classification and a canned answer vs. a full LLM response might use gpt-5-mini and GPT-5.2, respectively.
 
 ## Advanced Router with Embeddings
 
@@ -114,7 +121,9 @@ use rig::{
     providers::openai,
     vector_store::in_memory_store::InMemoryVectorStore,
 };
+use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
 struct RouteDefinition {
     name: String,
     description: String,
@@ -171,200 +180,25 @@ async fn semantic_route_query(
     router: &InMemoryVectorStore<RouteDefinition>,
     openai_client: &openai::Client,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    // Get query embedding
-    let query_embedding = openai_client
-        .embeddings("text-embedding-ada-002")
-        .simple_document(query)
-        .await?;
+    let embedding_model = openai_client.embedding_model("text-embedding-ada-002");
 
-    // Find most similar route
-    let results = router.top_n(&query_embedding, 1);
-    
+    let index = router.clone().index(embedding_model);
+
+    let req = VectorSearchRequest::builder()
+        .query(query)
+        .samples(1)
+        .build()?;
+
+    let results = index.top_n::<RouteDefinition>(req).await.unwrap();
+
+    // Currently speaking there's no similarity score threshold
+    // so this should always return at least one sample/result
     let route_name = results
         .first()
-        .map(|(route, _score)| route.name.as_str())
-        .unwrap_or("general");
+        .map(|(_, _, route_def)| route_def.name.as_str())
+        .unwrap();
 
     Ok(route_name.to_string())
-}
-```
-
-## Axum-Style Router Pattern with Multiple Agent Types
-
-Create a router structure that supports different agent types (OpenAI, Anthropic, etc.):
-
-```rust
-use std::collections::HashMap;
-use rig::{completion::Prompt, providers::{openai, anthropic}};
-
-// Type-erased agent that can handle any provider
-pub struct AgentRouter {
-    routes: HashMap<String, Box<dyn AgentHandler>>,
-}
-
-// Trait to allow different agent types to be stored together
-trait AgentHandler: Send + Sync {
-    fn prompt(&self, query: &str) -> impl std::future::Future<Output = Result<String, Box<dyn std::error::Error>>> + Send;
-}
-
-// Implement for any agent type that implements Prompt
-impl<T> AgentHandler for T
-where
-    T: rig::completion::CompletionModel + Send + Sync,
-{
-    async fn prompt(&self, query: &str) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(Prompt::prompt(self, query).await?)
-    }
-}
-
-impl AgentRouter {
-    pub fn new() -> Self {
-        Self {
-            routes: HashMap::new(),
-            default_route: String::from("default"),
-        }
-    }
-
-    pub fn route<A>(mut self, path: &str, agent: A) -> Self
-    where
-        A: AgentHandler + 'static,
-    {
-        self.routes.insert(path.to_string(), Box::new(agent));
-        self
-    }
-
-    pub fn default_route(mut self, path: &str) -> Self {
-        self.default_route = path.to_string();
-        self
-    }
-
-    pub async fn handle(
-        &self,
-        route_key: &str,
-        query: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let agent = self
-            .routes
-            .get(route_key)
-            .or_else(|| self.routes.get(&self.default_route))
-            .ok_or("No agent found for route")?;
-
-        let response = agent.prompt(query).await?;
-        Ok(response)
-    }
-}
-```
-This then allows you to use a multi-provider router by simply creating and adding more agents:
-
-```rust
-async fn setup_multi_provider_router() -> Result<AgentRouter, Box<dyn std::error::Error>> {
-    let openai_client = openai::Client::from_env();
-    let anthropic_client = rig::providers::anthropic::Client::from_env();
-    
-    let coding_agent = openai_client
-        .agent("gpt-4")
-        .preamble("You are an expert Rust programmer.")
-        .build();
-    let maths_agent = anthropic_client
-        .agent("claude-sonnet-4-20250514")
-        .preamble("You are a mathematics expert.")
-        .build(),
-
-    let router = AgentRouter::new()
-        .route("coding", coding_agent)
-        .route("math", maths_agent);
-
-    Ok(router)
-}
-```
-
-## Alternative: Enum-Based Multi-Provider Router
-
-For more explicit control, use an enum to represent different agent types:
-
-```rust
-use std::collections::HashMap;
-use rig::{providers::{openai, anthropic}, completion::Prompt};
-
-pub enum MultiProviderAgent {
-    OpenAI(openai::Agent),
-    Anthropic(anthropic::Agent),
-}
-
-impl MultiProviderAgent {
-    pub async fn prompt(&self, query: &str) -> Result<String, Box<dyn std::error::Error>> {
-        match self {
-            Self::OpenAI(agent) => Ok(agent.prompt(query).await?),
-            Self::Anthropic(agent) => Ok(agent.prompt(query).await?),
-        }
-    }
-}
-
-pub struct TypedAgentRouter {
-    routes: HashMap<String, MultiProviderAgent>,
-    default_route: String,
-}
-
-impl TypedAgentRouter {
-    pub fn new() -> Self {
-        Self {
-            routes: HashMap::new(),
-            default_route: String::from("default"),
-        }
-    }
-
-    pub fn route(mut self, path: &str, agent: MultiProviderAgent) -> Self {
-        self.routes.insert(path.to_string(), agent);
-        self
-    }
-
-    pub fn default_route(mut self, path: &str) -> Self {
-        self.default_route = path.to_string();
-        self
-    }
-
-    pub async fn handle(
-        &self,
-        route_key: &str,
-        query: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let agent = self
-            .routes
-            .get(route_key)
-            .or_else(|| self.routes.get(&self.default_route))
-            .ok_or("No agent found for route")?;
-
-        agent.prompt(query).await
-    }
-}
-
-// Usage
-async fn setup_typed_router() -> Result<TypedAgentRouter, Box<dyn std::error::Error>> {
-    let openai_client = openai::Client::from_env();
-    let anthropic_client = anthropic::Client::from_env();
-
-    let router = TypedAgentRouter::new()
-        .route(
-            "coding",
-            MultiProviderAgent::OpenAI(
-                openai_client
-                    .agent("gpt-4")
-                    .preamble("You are a coding expert.")
-                    .build(),
-            ),
-        )
-        .route(
-            "creative",
-            MultiProviderAgent::Anthropic(
-                anthropic_client
-                    .agent("claude-sonnet-4-20250514")
-                    .preamble("You are a creative writer.")
-                    .build(),
-            ),
-        )
-        .default_route("coding");
-
-    Ok(router)
 }
 ```
 
@@ -376,66 +210,36 @@ Here's a complete example using multiple providers with semantic routing:
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let openai_client = openai::Client::from_env();
-    let anthropic_client = anthropic::Client::from_env();
+    let coding_agent = openai_client
+        .agent("gpt-5")
+        .preamble("You are an expert coding assistant specializing in Rust programming.")
+        .build();
 
-    // Set up router with mixed providers
-    let router = AgentRouter::new()
-        .route(
-            "coding",
-            openai_client
-                .agent("gpt-4")
-                .preamble("You are an expert Rust programmer.")
-                .build(),
-        )
-        .route(
-            "creative",
-            anthropic_client
-                .agent("claude-sonnet-4-20250514")
-                .preamble("You are a creative writing expert.")
-                .build(),
-        )
-        .route(
-            "math",
-            openai_client
-                .agent("gpt-4")
-                .preamble("You are a mathematics expert.")
-                .build(),
-        )
-        .route(
-            "analysis",
-            anthropic_client
-                .agent("claude-opus-4-20250514")
-                .preamble("You are an expert at deep analytical reasoning.")
-                .build(),
-        )
-        .route(
-            "default",
-            openai_client
-                .agent("gpt-4")
-                .preamble("You are a helpful general assistant.")
-                .build(),
-        )
-        .default_route("default");
+    let math_agent = openai_client
+        .agent("gpt-5")
+        .preamble("You are a mathematics expert who excels at solving complex problems.")
+        .build();
 
-    // Create semantic router for determining routes
+    let rtr = TypedRouter::new()
+        .add_route("rust", coding_agent)
+        .add_route("maths", math_agent);
+
     let semantic_router = create_semantic_router(&openai_client).await?;
 
-    // Handle queries routed to different providers
-    let queries = vec![
-        "How do I implement error handling in Rust?",  // -> OpenAI (coding)
-        "Write a short poem about the ocean",           // -> Anthropic (creative)
-        "What's the derivative of x²?",                 // -> OpenAI (math)
-        "Analyze the themes in Shakespeare's Hamlet",   // -> Anthropic (analysis)
-    ];
+    let prompt = "How do I use async with Rust?";
+    println!("Prompt: {prompt}");
 
-    for query in queries {
-        let route = semantic_route_query(query, &semantic_router, &openai_client).await?;
-        let response = router.handle(&route, query).await?;
-        
-        println!("Query: {}", query);
-        println!("Route: {}", route);
-        println!("Response: {}\n", response);
-    }
+    let route_name = semantic_route_query(prompt, &semantic_router, &openai_client).await?;
+    println!("Route name selected: {route_name}");
+
+    let response = rtr
+        .fetch_agent(&route_name)
+        .unwrap()
+        .prompt(prompt)
+        .await
+        .unwrap();
+
+    println!("Response: {response}");
 
     Ok(())
 }

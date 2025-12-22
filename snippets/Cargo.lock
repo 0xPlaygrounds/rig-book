@@ -116,6 +116,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
+name = "dynamic-model-creation"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "rig-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -677,6 +689,24 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "model-routing"
+version = "0.1.0"
+dependencies = [
+ "rig-core",
+ "serde",
+ "tokio",
+]
+
+[[package]]
+name = "multi-agent-systems"
+version = "0.1.0"
+dependencies = [
+ "rig-core",
+ "serde",
+ "tokio",
 ]
 
 [[package]]

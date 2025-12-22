@@ -60,6 +60,12 @@ graph TD
 In Rig, we can easily illustrate this with writing two agents called Alice and Bob. Alice is a manager at FooBar Inc., a fictitious company made up for the purposes of this example. Bob is employed by Alice to do some work. We can see how this hierarchy is pretty simple:
 
 ```rust
+use rig::{
+    client::{CompletionClient, ProviderClient},
+    completion::Prompt,
+};
+
+let prompt = "Ask Bob to write an email for you and let me know what he has written.";
 let bob = openai_client.agent("gpt-5")
     .name("Bob")
     .description("An employee who works in admin at FooBar Inc.")
@@ -163,7 +169,7 @@ impl AutonomousAgent {
 
     /// Process autonomous task using LLM
     /// This currently shows a simple LLM prompt, but if you wanted you could give your agent some tools!
-    async fn process_autonomous_task(&self, task: &str) -> Result<String, Box<dyn std::error::Error>> {
+    async fn process_autonomous_task(&self, task: &str) -> Result<String, rig::completion::PromptError> {
         let agent = self.client
             .agent("gpt-5")
             .preamble(&format!(
@@ -173,28 +179,6 @@ impl AutonomousAgent {
             .build();
 
         let response = agent.prompt(task).await?;
-        Ok(response)
-    }
-}
-```
-
-Next, we need to define a function to actually do some work. For this example, we make a prompt request to OpenAI that sends a system prompt telling it that it should process tasks autonomously and co-ordinate with other agents - and the prompt itself contains the task.
-
-```rust
-impl AutonomousAgent {
-    // Process autonomous task using LLM
-    // This currently shows a simple LLM prompt, but if you wanted you could give your agent some tools!
-    async fn process_autonomous_task(&self, task: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let agent = self.client
-            .agent("gpt-5")
-            .preamble(&format!(
-                "Your name is {}. Process tasks autonomously and coordinate with other agents.",
-                self.id
-            ))
-            .build();
-        
-        let response = agent.prompt(task).await?;
-
         Ok(response)
     }
 }
@@ -208,7 +192,7 @@ Since we want to be able to *both* run tasks from both an autonomous trigger as 
 use tokio::time::{interval, Duration};
 
 impl AutonomousAgent {
-    async fn handle_message(mut self, task: AgentMessage) {
+    async fn handle_message(&self, task: AgentMessage) {
 o       match task {
             AgentMessage::Task(task) => {
                 println!("[{}] Received task: {}", self.id, task);
@@ -272,12 +256,14 @@ o       match task {
                 _ = tick_interval.tick() => {
                     println!("[{}] Autonomous tick - checking for self-initiated tasks", self.id);
                     
-                    let mut state_wlock = self.state.write().await;
-                    
                     // Check if agent should create its own task
-                    if state.task_queue.is_empty() && state.conversation_history.len() > 0 {
-                        drop(state_wlock); // Release lock before async operation to avoid potential deadlock
-                        
+                    // Use scoped brackets here to avoid needing to manually drop lock
+                    let needs_to_create_own_task =  {
+                        let state_rlock = self.state.read().await;
+                        state_rlock.task_queue.is_empty() && !state_rlock.conversation_history.is_empty()
+                    };
+                    
+                    if needs_to_create_own_task  {
                         let summary_task = "Summarize what you've accomplished so far in one sentence.";
                         match self.process_autonomous_task(summary_task).await {
                             Ok(summary) => {
