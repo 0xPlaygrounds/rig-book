@@ -1,5 +1,7 @@
 # Tool calling
 
+The full example for this section can be found [on the GitHub repo.](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/tool-calling/src/main.rs)
+
 ## What is tool calling?
 Tool calling (also called "function calling") essentially involves the LLM sending a prompt response containing a content part called a "tool call", using a tool that you have defined as part of your request. Your agent then executes the tool, typically represented as a function, then sends the tool result back to the LLM. The LLM will then use the tool result to generate a response that uses the tool result.
 

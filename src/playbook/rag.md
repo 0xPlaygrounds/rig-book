@@ -1,5 +1,7 @@
 # Retrieval-Augmented Generation (RAG)
 
+The full example for this section can be found [on the GitHub repo.](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/rag/src/main.rs)
+
 ## What is RAG?
 Retrieval Augmented Generation (or RAG) retrieves relevant documents from a data store based on a given query and includes them in an LLM prompt to assist with grounding a response in factual information. The goal of doing this is to reduce hallucinations and include data that may be missing from a model's training data (or that it cannot retrieve from a web search).
 
@@ -22,6 +24,7 @@ If you are writing a customer support bot or chatbot that relies on some documen
 However if you are using an LLM for simple data classification tasks for which the categories of data are already well known (ie, "is this a cat or a dog?"), you probably don't need RAG.
 
 ## RAG with Rig
+
 Rig provides built-in support for RAG through two ways:
 - the `VectorStoreIndex` trait for fetching documents
 - the `InsertDocuments` trait for inserting documents

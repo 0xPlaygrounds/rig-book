@@ -2,6 +2,11 @@
 
 Effective observability is crucial for understanding and debugging LLM applications in production. Rig provides built-in instrumentation using the `tracing` ecosystem, allowing you to track requests, measure performance, and diagnose issues across your AI workflows.
 
+The complete codebase for this section is split up into two separate binary examples, with a separate folder for the accompanying OpenTelemetry files:
+- [Basic observability example](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/observability/src/bin/basic.rs)
+- [OpenTelemetry based example](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/observability/src/bin/otel.rs)
+- [OpenTelemetry collector YAML and Dockerfile](https://github.com/0xPlaygrounds/rig-book/tree/main/snippets/observability/otel)
+
 ## Observability in LLM-assisted systems
 Observability in AI/LLM-assisted systems is a huge component in being able to ensure that a non-deterministic system can still be considered relatively reliable by making sure that metrics like model drift (and accuracy!), guardrail effectiveness and token usage can be easily tracked as well as error rates. Even moreso than traditional systems, it's important for LLM-assisted systems to be instrumented and observable specifically because of the non-deterministic component.
 

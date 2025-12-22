@@ -58,6 +58,7 @@ struct AgentConfig<'a> {
 // allowing arbitrary strings, for improved type safety
 struct ProviderRegistry(HashMap<&'static str, fn(&AgentConfig) -> Agents>);
 
+/// A function that creates an instance of `Agents` (using the Anthropic variant)
 fn anthropic_agent(AgentConfig { name, preamble }: &AgentConfig) -> Agents {
     let agent = anthropic::Client::from_env()
         .agent(CLAUDE_3_7_SONNET)
@@ -68,6 +69,7 @@ fn anthropic_agent(AgentConfig { name, preamble }: &AgentConfig) -> Agents {
     Agents::Anthropic(agent)
 }
 
+/// A function that creates an instance of `Agents` (using the OpenAI variant)
 fn openai_agent(AgentConfig { name, preamble }: &AgentConfig) -> Agents {
     let agent = openai::Client::from_env()
         .completions_api()
@@ -80,6 +82,8 @@ fn openai_agent(AgentConfig { name, preamble }: &AgentConfig) -> Agents {
 }
 
 impl ProviderRegistry {
+    /// Creates a new instance of ProviderRegistry.
+    /// This is instantiated with both the Anthropic and OpenAI variants (and their corresponding function pointers)
     pub fn new() -> Self {
         Self(HashMap::from_iter([
             ("anthropic", anthropic_agent as fn(&AgentConfig) -> Agents),
@@ -87,6 +91,8 @@ impl ProviderRegistry {
         ]))
     }
 
+    /// Attempt to retrieve an Agent.
+    /// If none exists, it will simply return None
     pub fn agent(&self, provider: &str, agent_config: &AgentConfig) -> Option<Agents> {
         self.0.get(provider).map(|p| p(agent_config))
     }

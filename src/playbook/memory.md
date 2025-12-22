@@ -1,5 +1,7 @@
 # Memory
 
+The full example for this section can be found [in the GitHub repo.](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/memory/src/main.rs)
+
 ## What is Memory?
 
 Agentic memory (or just "memory") in AI applications refers to the system's ability to retain and utilize information from previous interactions. Without memory, each conversation with an LLM starts from scratch—the model has no awareness of what was discussed moments ago. Memory allows your AI application to maintain context across multiple exchanges, creating more coherent and personalized experiences.

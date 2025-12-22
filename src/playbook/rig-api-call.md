@@ -1,4 +1,7 @@
 # Calling Model Providers with Rig
+
+The full example for this section can be found [on the GitHub repo.](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/rig-api-call/src/main.rs)
+
 Let's get started by writing your first API call to a model provider. While Rig does have support for local models (through ollama, LM Studio through OpenAI Chat Completions, as well as other local providers), the majority of practical applications are through third party providers. 
 
 To get started, create a new project:

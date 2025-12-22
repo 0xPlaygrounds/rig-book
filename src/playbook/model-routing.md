@@ -2,6 +2,8 @@
 
 Model routing allows you to dynamically select different agents based on the incoming request. This enables you to build sophisticated systems where requests are intelligently routed to specialized agents. For example, if you run a sales team you might have a domain expert agent, an agent to assist with sales engineering and an agent to help you check in on your team's performance and where they may need unblocking - all under one chat interface. By using model routing, we can effectively model a system that accurately categorises which agent the query should go to.
 
+The full example for this section can be found on [the GitHub repo.](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/model-routing/src/main.rs)
+
 ## Use cases for model routing
 Model routing is a simple concept that simultaneously solves a lot of issues in AI systems by using it as the following:
 - A guardrail layer (to make sure the model only responds to certain topics)

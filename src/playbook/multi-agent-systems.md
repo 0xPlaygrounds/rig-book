@@ -1,5 +1,7 @@
 # Multi-agent systems
 
+The full example for this section can be found [on the GitHub repo.](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/multi-agent-systems/src/main.rs)
+
 ## The case for multi-agent systems
 As your LLM workflows grow more sophisticated, you'll eventually hit a wall with single-agent architectures. An agent that starts by handling customer support tickets might gradually take on order processing, then inventory checks, then fraud detection. Before long, you're dealing with an agent that has access to 30+ tools, a bloated system prompt trying to juggle multiple responsibilities, and increasingly unreliable outputs.
 

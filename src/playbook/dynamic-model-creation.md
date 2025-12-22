@@ -1,5 +1,8 @@
 # Dynamic model creation
+
 This section will talk about some of the challenges around creating model provider clients dynamically and how we can make this as convenient as possible.
+
+The full example for this section can be found [in the GitHub repo.](https://github.com/0xPlaygrounds/rig-book/blob/main/snippets/dynamic-model-creation/src/main.rs)
 
 Due to the Rust type system, dynamic model client creation is made a bit more difficult than in more dynamic programming languages like Python due to having to specify a type for everything. However, that doesn't mean it is made impossible: it simply has more tradeoffs for doing so.
 
@@ -59,6 +62,7 @@ impl ProviderRegistry {
     }
 }
 
+/// A function that creates an instance of `Agents` (using the Anthropic variant)
 fn anthropic_agent(AgentConfig { name, preamble }: &AgentConfig) -> Agents {
     let agent = anthropic::Client::from_env()
         .agent(CLAUDE_3_7_SONNET)
@@ -69,6 +73,7 @@ fn anthropic_agent(AgentConfig { name, preamble }: &AgentConfig) -> Agents {
     Agents::Anthropic(agent)
 }
 
+/// A function that creates an instance of `Agents` (using the OpenAI variant)
 fn openai_agent(AgentConfig { name, preamble }: &AgentConfig) -> Agents {
     let agent = openai::Client::from_env()
         .completions_api()
