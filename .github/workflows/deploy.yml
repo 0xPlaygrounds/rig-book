@@ -1,0 +1,85 @@
+name: Deploy mdBook to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Install mdbook and mdbook-mermaid
+        run: |
+          cargo install mdbook mdbook-mermaid
+
+      - name: Build the book
+        run: mdbook build
+
+      - name: Copy CNAME, robots.txt, and llms.txt to book output
+        run: |
+          cp CNAME ./book/
+          cp robots.txt ./book/
+          cp llms.txt ./book/
+
+      - name: Generate llms-full.txt
+        run: |
+          echo "# The Rig Book - Full Content" > ./book/llms-full.txt
+          echo "" >> ./book/llms-full.txt
+          echo "> Complete documentation for building AI agents in Rust with Rig" >> ./book/llms-full.txt
+          echo "" >> ./book/llms-full.txt
+          echo "---" >> ./book/llms-full.txt
+          echo "" >> ./book/llms-full.txt
+          find ./src -name '*.md' -type f | sort | while read file; do
+            echo "## File: ${file#./src/}" >> ./book/llms-full.txt
+            echo "" >> ./book/llms-full.txt
+            cat "$file" >> ./book/llms-full.txt
+            echo "" >> ./book/llms-full.txt
+            echo "---" >> ./book/llms-full.txt
+            echo "" >> ./book/llms-full.txt
+          done
+
+      - name: Generate sitemap.xml
+        run: |
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > ./book/sitemap.xml
+          echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> ./book/sitemap.xml
+          find ./book -name '*.html' -type f | while read file; do
+            path="${file#./book}"
+            echo "  <url><loc>https://book.rig.rs${path}</loc></url>" >> ./book/sitemap.xml
+          done
+          echo '</urlset>' >> ./book/sitemap.xml
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./book
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

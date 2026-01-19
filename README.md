@@ -1,6 +1,8 @@
 ## The Rig Playbook
 This repo is the GitHub repo for the Rig playbook.
 
+📖 **Live at: [book.rig.rs](https://book.rig.rs)**
+
 ## Development
 Below is some guidance on how to get started with running the various parts of this repo if you would like to contribute.
 
