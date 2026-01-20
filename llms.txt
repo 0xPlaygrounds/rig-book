@@ -1,0 +1,25 @@
+# The Rig Book
+
+> A comprehensive playbook for building AI agents in Rust using the Rig framework.
+
+## About
+
+The Rig Book is the official documentation and playbook for Rig, a Rust library for building LLM-powered applications and AI agents. It covers everything from basic API calls to advanced patterns like RAG, tool calling, and multi-agent systems.
+
+## Sections
+
+- [Introduction](/intro/index.html): Overview of the book and AI agents in Rust
+- [Making API Calls](/playbook/rig-api-call.html): Basic usage of Rig for LLM API calls
+- [Tool Calling](/playbook/tool-calling.html): How to implement function/tool calling with agents
+- [RAG](/playbook/rag.html): Retrieval-Augmented Generation patterns
+- [Memory](/playbook/memory.html): Implementing conversation memory
+- [Model Routing](/playbook/model-routing.html): Dynamic model selection strategies
+- [Dynamic Model Creation](/playbook/dynamic-model-creation.html): Runtime model instantiation
+- [Multi-Agent Systems](/playbook/multi-agent-systems.html): Orchestrating multiple AI agents
+- [Observability](/playbook/observability.html): Monitoring and tracing AI applications
+
+## Links
+
+- Documentation: https://book.rig.rs
+- Rig GitHub: https://github.com/0xPlaygrounds/rig
+- Rig Crates.io: https://crates.io/crates/rig-core

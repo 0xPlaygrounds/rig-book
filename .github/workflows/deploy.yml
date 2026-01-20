@@ -2,7 +2,8 @@ name: Deploy mdBook to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -17,39 +18,79 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install mdBook + mdbook-mermaid
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install mdbook and mdbook-mermaid
         run: |
-          MDBOOK_VERSION=0.4.40
-          MERMAID_VERSION=0.13.0
+          cargo install mdbook mdbook-mermaid
 
-          curl -L https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz \
-            | tar xz
-          sudo mv mdbook /usr/local/bin/
-
-          curl -L https://github.com/badboy/mdbook-mermaid/releases/download/v${MERMAID_VERSION}/mdbook-mermaid-v${MERMAID_VERSION}-x86_64-unknown-linux-gnu.tar.gz \
-            | tar xz
-          sudo mv mdbook-mermaid /usr/local/bin/
-
-      - name: Build book
+      - name: Build the book
         run: mdbook build
 
-      - name: Upload Pages artifact
+      - name: Copy CNAME, robots.txt, and llms.txt to book output
+        run: |
+          cp CNAME ./book/
+          cp robots.txt ./book/
+          cp llms.txt ./book/
+
+      - name: Generate llms-full.txt
+        run: |
+          echo "# The Rig Book - Full Content" > ./book/llms-full.txt
+          echo "" >> ./book/llms-full.txt
+          echo "> Complete documentation for building AI agents in Rust with Rig" >> ./book/llms-full.txt
+          echo "" >> ./book/llms-full.txt
+          echo "---" >> ./book/llms-full.txt
+          echo "" >> ./book/llms-full.txt
+          find ./src -name '*.md' -type f | sort | while read file; do
+            echo "## File: ${file#./src/}" >> ./book/llms-full.txt
+            echo "" >> ./book/llms-full.txt
+            cat "$file" >> ./book/llms-full.txt
+            echo "" >> ./book/llms-full.txt
+            echo "---" >> ./book/llms-full.txt
+            echo "" >> ./book/llms-full.txt
+          done
+
+      - name: Generate sitemap.xml
+        run: |
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > ./book/sitemap.xml
+          echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> ./book/sitemap.xml
+          find ./book -name '*.html' -type f | while read -r file; do
+            path="${file#./book}"
+            url="https://book.rig.rs${path}"
+            # XML-escape the URL for safe inclusion in sitemap.xml
+            escaped_url=$(printf '%s' "$url" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e "s/\"/\&quot;/g" -e "s/'/\&apos;/g")
+            # Use the file's modification time as lastmod, fallback to current time if unavailable
+            lastmod=$(date -u -r "$file" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+            cat >> ./book/sitemap.xml <<EOF
+            <url>
+              <loc>${escaped_url}</loc>
+              <lastmod>${lastmod}</lastmod>
+              <changefreq>weekly</changefreq>
+              <priority>0.5</priority>
+            </url>
+          EOF
+          done
+          echo '</urlset>' >> ./book/sitemap.xml
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: book
+          path: ./book
 
   deploy:
-    needs: build
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
+    runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

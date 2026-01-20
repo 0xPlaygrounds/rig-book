@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://book.rig.rs/sitemap.xml
+
+# LLM-specific
+# See https://llmstxt.org for spec
+Llms-txt: https://book.rig.rs/llms.txt
+Llms-full-txt: https://book.rig.rs/llms-full.txt
