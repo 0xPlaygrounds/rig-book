@@ -1,5 +1,5 @@
 # How to use this book
-There’s no single “correct” path through this book, and you shouldn’t feel pressured to read it cover-to-cover in a linear order. Instead, treat it as a toolkit you can dip into depending on what you’re trying to build, debug, or understand.
+There’s no single “correct” path through this mdbook, and you shouldn’t feel pressured to read it cover-to-cover (so to speak!) in a linear order. Instead, treat it as a toolkit you can dip into depending on what you’re trying to build, debug, or understand.
 
 The primary goal is to help you grow as a Rust developer working in applied AI - someone who not only knows the language, but can wield it effectively when dealing with models, pipelines, observability, concurrency, and real-world deployment concerns. Rig gives you the building blocks; this book shows you how to assemble and reason about them.
 
