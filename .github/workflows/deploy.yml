@@ -59,9 +59,21 @@ jobs:
         run: |
           echo '<?xml version="1.0" encoding="UTF-8"?>' > ./book/sitemap.xml
           echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> ./book/sitemap.xml
-          find ./book -name '*.html' -type f | while read file; do
+          find ./book -name '*.html' -type f | while read -r file; do
             path="${file#./book}"
-            echo "  <url><loc>https://book.rig.rs${path}</loc></url>" >> ./book/sitemap.xml
+            url="https://book.rig.rs${path}"
+            # XML-escape the URL for safe inclusion in sitemap.xml
+            escaped_url=$(printf '%s' "$url" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e "s/\"/\&quot;/g" -e "s/'/\&apos;/g")
+            # Use the file's modification time as lastmod, fallback to current time if unavailable
+            lastmod=$(date -u -r "$file" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+            cat >> ./book/sitemap.xml <<EOF
+            <url>
+              <loc>${escaped_url}</loc>
+              <lastmod>${lastmod}</lastmod>
+              <changefreq>weekly</changefreq>
+              <priority>0.5</priority>
+            </url>
+          EOF
           done
           echo '</urlset>' >> ./book/sitemap.xml
 
