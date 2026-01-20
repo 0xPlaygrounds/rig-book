@@ -27,11 +27,10 @@ jobs:
         with:
           mdbook-version: 'latest'
 
-      - name: Install mdbook-mermaid (pre-built binary)
-        run: |
-          curl -sSL https://github.com/badboy/mdbook-mermaid/releases/latest/download/mdbook-mermaid-x86_64-unknown-linux-gnu.tar.gz | tar -xz
-          chmod +x mdbook-mermaid
-          mv mdbook-mermaid /usr/local/bin/
+      - name: Install mdbook-mermaid
+        uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook-mermaid
 
       - name: Build the book
         run: mdbook build
