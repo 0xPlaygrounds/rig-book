@@ -28,6 +28,20 @@ The simplest way to get started is with `tracing-subscriber`'s formatting layer:
 tracing_subscriber::fmt().init();
 ```
 
+However this requires you to add your `RUSTLOG` environment variable every time you want to see the logs. Useful if you want to get logs once, not so useful if you are running quick iterative loops. Let's combine it with an `EnvFilter`, which will let us automatically set the logging level (in this case we'll use info level for general logging and trace level logging specifically for Rig):
+
+```rust
+tracing_subscriber::registry()
+  .with(
+      tracing_subscriber::EnvFilter::try_from_default_env()
+          .unwrap_or_else(|_| "info,rig=trace".into())
+  )
+  .with(tracing_subscriber::fmt::layer())
+  .init();
+```
+
+The next step is actually adding the logging and instrumentation. By using the `#[tracing::instrument]` macro, we can automatically enter a span (a monitored unit of work) and output some events, which will be added as logs under the span.
+
 ```rust
 use rig::{
     client::{CompletionClient, ProviderClient},
